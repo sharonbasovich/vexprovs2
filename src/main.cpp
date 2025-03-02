@@ -58,6 +58,15 @@ lemlib::OdomSensors sensors(
 	&imu						// inertial sensor
 );
 
+// lemlib::OdomSensors sensors(
+// 	&vertical_tracking_wheel,	// vertical tracking wheel 1, set to null
+// 	nullptr,					// vertical tracking wheel 2, set to nullptr as we have none
+// 	nullptr, // horizontal tracking wheel 1
+// 	nullptr,					// horizontal tracking wheel 2, set to nullptr as we don't have a
+// 								// second one
+// 	&imu						// inertial sensor
+// );
+
 // lateral PID controller
 lemlib::ControllerSettings lateral_controller(10, // proportional gain (kP)
 											  0,  // integral gain (kI)
@@ -101,6 +110,8 @@ lemlib::Chassis chassis(drivetrain,			// drivetrain settings
 											// &throttle_curve, &steer_curve
 );
 
+int proximity = 0;
+
 void intakeForward()
 {
 	intake_preroller.move(127);
@@ -135,7 +146,8 @@ void holdRing()
 	// set hold to true if intake should stop to hold ring when it is detected or false otherwise
 	while (true)
 	{
-		if (ring_color.get_proximity() > 100)
+		proximity = ring_color.get_proximity();
+		if (proximity > 100)
 		{
 			if (hold)
 			{
@@ -164,7 +176,6 @@ int previousDist = 0;
 int ringColour = 0;
 // 0 is none, 1 is red, 2 is blue
 
-int proximity = 0;
 int distance = 0;
 std::deque<int> intakeQ;
 // 1 is a red ring, 2 is a blue ring
@@ -176,7 +187,6 @@ void detectChange()
 	while (true)
 	{
 		hue = ring_color.get_hue();
-		proximity = ring_color.get_proximity();
 		distance = ring_distance.get_distance();
 
 		if (sort)
@@ -215,9 +225,8 @@ void detectChange()
 			}
 
 			previousDist = distance;
-
-			pros::delay(10);
 		}
+		pros::delay(10);
 	}
 }
 
@@ -610,6 +619,7 @@ void progSkills()
 	pros::delay(500);
 	chassis.turnToHeading(0, 700);
 	pros::delay(100);
+	intakeStop();
 
 	chassis.moveToPoint(-50, -20, 1800, {.forwards = false, .maxSpeed = 40});
 	pros::delay(1500);
@@ -619,11 +629,11 @@ void progSkills()
 	// ring 1 mogo 1
 	chassis.turnToHeading(70, 400);
 	pros::delay(100);
+	intakeForward();
 	chassis.moveToPoint(-22, -22, 1000);
-	pros::delay(500);
+	pros::delay(1000);
+	chassis.turnToPoint(0, -46, 700, {.maxSpeed = 90});
 
-	// get lb 1 ring
-	chassis.turnToPoint(0, -46, 500);
 	chassis.moveToPoint(0, -46, 400, {.earlyExitRange = 3});
 	chassis.turnToPoint(33, -48, 250, {.earlyExitRange = 5});
 	chassis.moveToPoint(33, -48, 2000);
@@ -646,7 +656,7 @@ void progSkills()
 	// score lb 1
 	pros::delay(1500);
 	intake_hooks.move(-100);
-	pros::delay(150);
+	pros::delay(250);
 	intake_hooks.move(0);
 	pros::delay(10);
 	state += 1;
@@ -657,18 +667,18 @@ void progSkills()
 	pros::delay(10);
 
 	// back away from lb 1
-	chassis.moveToPoint(7, -47, 900, {.forwards = false});
+	chassis.moveToPoint(5, -47, 900, {.forwards = false});
 	pros::delay(700);
 
 	// retract lb
-	state -= 1;
+	state -= 2;
 	pros::delay(200);
 
 	// score ring 3, 4, 5 mogo 1
 	pros::delay(500);
 	chassis.moveToPose(-45, -47, 270, 700);
 	pros::delay(10);
-	chassis.moveToPose(-64, -47, 270, 2000, {.maxSpeed = 100});
+	chassis.moveToPose(-64, -47, 270, 2800, {.maxSpeed = 50});
 	pros::delay(500);
 
 	// score ring 6 mogo 1
@@ -688,21 +698,24 @@ void progSkills()
 
 	// go to and clamp mogo 2
 	chassis.moveToPoint(-53, -36, 700);
-	chassis.turnToPoint(-58, 19, 600, {.forwards = false});
-	chassis.moveToPoint(-58, 19, 800, {.forwards = false});
-	chassis.moveToPoint(-58, 19, 1700, {.forwards = false, .maxSpeed = 40});
+	chassis.turnToPoint(-57, 19, 600, {.forwards = false});
+	chassis.moveToPoint(-57, 19, 800, {.forwards = false});
+	chassis.moveToPoint(-57, 19, 1700, {.forwards = false, .maxSpeed = 40});
 	pros::delay(1300);
 	clamp.extend();
-	intakeForward();
 	pros::delay(700);
+	intakeForward();
 
 	// ring 1 mogo 2
 	chassis.moveToPose(-22, 18, 120, 1600);
+	// chassis.turnToPoint(-22, 18, 600);
+	// chassis.moveToPoint(-22, 18, 1000);
 	pros::delay(1000);
 
 	// ring 2 mogo 2
-	chassis.moveToPose(-31, 54, 300, 1600);
-	pros::delay(1000);
+	chassis.moveToPose(-37, 54, 300, 1600);
+	// chassis.turnToPoint(-31, 54, 600);
+	// chassis.moveToPoint(-31, 54, 800);
 
 	// rings 3, 4 mogo 2
 	chassis.moveToPose(-80, 43, 270, 2500, {.maxSpeed = 60});
@@ -717,36 +730,36 @@ void progSkills()
 
 	// score mogo 2
 	chassis.turnToPoint(-75, 75, 700, {.forwards = false});
-	chassis.moveToPoint(-75, 75, 700, {.forwards = false});
-	pros::delay(100);
+	pros::delay(500);
 	clamp.retract();
+	chassis.moveToPoint(-75, 75, 700, {.forwards = false});
 	pros::delay(10);
-
+	intakeBackward();
 	// drive away from corner 2
-	chassis.moveToPoint(-17, 50, 500, {.earlyExitRange = 3});
-
+	chassis.moveToPoint(-15, 50, 500, {.earlyExitRange = 3});
+	intakeForward();
 	// line up with lb 2
-	chassis.moveToPoint(-12, 40, 1600, {.maxSpeed = 70});
+	chassis.moveToPoint(-12, 40, 1600, {.maxSpeed = 60});
 
 	// pop up lb 2
 	state += 1;
 	pros::delay(500);
 
 	// drive into lb 2
-	chassis.turnToHeading(355, 700);
+	chassis.turnToHeading(0, 700);
 	chassis.moveToPoint(-17, 70, 1800, {.maxSpeed = 60});
 	pros::delay(1800);
 
 	// score lb 2
 	intake_hooks.move(-100);
-	pros::delay(150);
+	pros::delay(250);
 	intake_hooks.move(0);
 	pros::delay(10);
 	state += 1;
 	pros::delay(900);
 
 	// back away from lb 2
-	chassis.moveToPoint(-1, 46, 1000, {.forwards = false});
+	chassis.moveToPoint(-6, 46, 1000, {.forwards = false});
 
 	// retract lb
 	state -= 2;
@@ -757,7 +770,7 @@ void progSkills()
 	pros::delay(300);
 	intakeForward();
 
-	// bold ring 1 mogo 3
+	// hold ring 1 mogo 3
 	chassis.moveToPoint(21, 52, 1500);
 
 	// hold ring 2 mogo 3
@@ -769,9 +782,22 @@ void progSkills()
 	clamp.extend();
 	pros::delay(200);
 
+	// // burst towards rings
+	// chassis.moveToPoint(33, 37, 1500, {.maxSpeed = 60});
+	// pros::delay(100);
+	// hold = false;
+	// intakeForward();
+
+	// // enable colour sort
+	// sort = true;
+
+	// // intake rings 3 and 4 on mogo 3
+	// chassis.moveToPoint(34, 53, 2000, {.maxSpeed = 100});
+	// pros::delay(2000);
+
 	// burst towards rings
-	chassis.moveToPoint(34, 59, 1500);
-	pros::delay(200);
+	chassis.moveToPoint(34, 53, 3500, {.maxSpeed = 40});
+	pros::delay(100);
 	hold = false;
 	intakeForward();
 
@@ -779,23 +805,28 @@ void progSkills()
 	sort = true;
 
 	// intake rings 3 and 4 on mogo 3
-	chassis.moveToPoint(34, 59, 5000, {.maxSpeed = 35});
-	pros::delay(4500);
 
 	// back away from wall
 	chassis.moveToPoint(32, 41, 800, {.forwards = false});
 
 	// intake ring 5 on mogo 3
-	chassis.moveToPoint(52, 55, 1500);
+	chassis.moveToPoint(58, 55, 2000, {.maxSpeed = 60});
 	pros::delay(1500);
+	doinker.extend();
+	intakeBackward();
+	// drive into corner
+	chassis.moveToPoint(65, 65, 1000, {.maxSpeed = 60});
 
 	// turn to corner and unclamp
-	chassis.turnToHeading(240, 1000, {.direction = AngularDirection::CW_CLOCKWISE});
+	chassis.turnToHeading(240, 1000, {.direction = AngularDirection::CCW_COUNTERCLOCKWISE});
 	pros::delay(800);
+	doinker.retract();
+	pros::delay(10);
 	clamp.retract();
-
+	pros::delay(200);
+	intakeBackward();
 	// score mogo 3
-	chassis.moveToPoint(56, 68, 1000, {.forwards = false});
+	chassis.moveToPoint(60, 68, 1000, {.forwards = false, .maxSpeed = 80});
 	pros::delay(250);
 
 	// reverse when plowing mogo 4
@@ -828,10 +859,10 @@ void progSkills()
 	chassis.moveToPoint(63, -60, 1300, {.forwards = false});
 
 	// back away from mogo and hang
-	chassis.moveToPoint(12, -14, 10000, {.forwards = false});
-	state += 2;
-	pros::delay(1000);
-	state -= 2;
+	chassis.moveToPoint(12, -14, 10000);
+	// state += 2;
+	// pros::delay(1000);
+	// state -= 2;
 
 	pros::delay(10000);
 }
@@ -844,7 +875,6 @@ void autonomous()
 	pros::delay(10);
 	pros::Task detect_task(detectChange);
 	pros::delay(10);
-	// progSkills();
 	progSkills();
 	pros::delay(100000);
 }
@@ -885,9 +915,9 @@ void opcontrol()
 	lift.retract();
 
 	// scores preload on alliance at the start using lb
-	// state += 2;
-	// pros::delay(600);
-	// state -= 2;
+	state += 2;
+	pros::delay(600);
+	state -= 2;
 
 	// // pros::Task controller_task(updateController); // prints to controller, comment out to get back default ui
 	// pros::delay(10);
